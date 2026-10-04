@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VO2 Max Estimator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *:focus-visible { outline: 3px solid #3b82f6; outline-offset: 2px; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen py-8 px-4">
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">VO2 Max Estimator</h1>
+  <p class="text-center text-gray-500 mb-8">Estimate your aerobic fitness level</p>
+
+  <!-- Method Tabs -->
+  <div class="flex rounded-lg overflow-hidden border border-gray-200 mb-6">
+    <button id="tab-hr" onclick="switchTab('hr')" class="flex-1 py-3 text-sm font-medium bg-blue-600 text-white transition-colors" aria-pressed="true">Heart Rate Method</button>
+    <button id="tab-cooper" onclick="switchTab('cooper')" class="flex-1 py-3 text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 transition-colors" aria-pressed="false">Cooper 12-Min Run</button>
+  </div>
+
+  <!-- HR Method Form -->
+  <div id="form-hr" class="bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Heart Rate Method (Uth-Sørensen Formula)</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="age" class="block text-sm font-medium text-gray-700 mb-1">Age (years)</label>
+        <input type="number" id="age" min="10" max="100" placeholder="e.g. 35"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+        <div class="flex gap-3 mt-1">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="gender" value="M" checked class="accent-blue-600 w-4 h-4" /> Male
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="gender" value="F" class="accent-blue-600 w-4 h-4" /> Female
+          </label>
+        </div>
+      </div>
+      <div>
+        <label for="resthr" class="block text-sm font-medium text-gray-700 mb-1">Resting Heart Rate (bpm)</label>
+        <input type="number" id="resthr" min="30" max="120" placeholder="e.g. 65"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+      </div>
+      <div>
+        <label for="maxhr" class="block text-sm font-medium text-gray-700 mb-1">Max Heart Rate (bpm)</label>
+        <input type="number" id="maxhr" min="100" max="220" placeholder="Leave blank to auto-calc"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+        <p class="text-xs text-gray-400 mt-1">Blank = 220 − age</p>
+      </div>
+    </div>
+    <button onclick="calculateHR()" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+      Estimate VO2 Max
+    </button>
+  </div>
+
+  <!-- Cooper Method Form -->
+  <div id="form-cooper" class="hidden bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Cooper 12-Minute Run Test</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="c-age" class="block text-sm font-medium text-gray-700 mb-1">Age (years)</label>
+        <input type="number" id="c-age" min="10" max="100" placeholder="e.g. 35"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+        <div class="flex gap-3 mt-1">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="c-gender" value="M" checked class="accent-blue-600 w-4 h-4" /> Male
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="c-gender" value="F" class="accent-blue-600 w-4 h-4" /> Female
+          </label>
+        </div>
+      </div>
+      <div class="sm:col-span-2">
+        <label for="distance" class="block text-sm font-medium text-gray-700 mb-1">Distance Covered in 12 Minutes (meters)</label>
+        <input type="number" id="distance" min="200" max="5000" placeholder="e.g. 2400"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+        <p class="text-xs text-gray-400 mt-1">Formula: VO2max = (distance − 504.9) / 44.73</p>
+      </div>
+    </div>
+    <button onclick="calculateCooper()" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+      Estimate VO2 Max
+    </button>
+  </div>
+
+  <!-- Result Card -->
+  <div id="result-card" class="hidden rounded-2xl shadow p-6 mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xl font-bold text-white">Your VO2 Max</h2>
+      <span id="classification-badge" class="text-sm font-bold px-3 py-1 rounded-full bg-white bg-opacity-20 text-white"></span>
+    </div>
+    <p id="vo2-value" class="text-5xl font-black text-white mb-1"></p>
+    <p class="text-white text-opacity-80 text-sm mb-4">mL/kg/min</p>
+    <div id="tips-section" class="bg-white bg-opacity-15 rounded-xl p-4">
+      <p class="text-white font-semibold mb-2 text-sm">Improvement Tips</p>
+      <ul id="tips-list" class="text-white text-opacity-90 text-sm space-y-1"></ul>
+    </div>
+  </div>
+
+  <!-- Classification Table -->
+  <div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">Fitness Classification Reference</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50">
+            <th class="text-left px-3 py-2 font-medium text-gray-600">Classification</th>
+            <th class="text-center px-3 py-2 font-medium text-gray-600">Male 20–29</th>
+            <th class="text-center px-3 py-2 font-medium text-gray-600">Male 30–39</th>
+            <th class="text-center px-3 py-2 font-medium text-gray-600">Female 20–29</th>
+            <th class="text-center px-3 py-2 font-medium text-gray-600">Female 30–39</th>
+          </tr>
+        </thead>
+        <tbody id="class-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-lg font-semibold text-gray-700 mb-4">VO2 Max by Fitness Level</h2>
+    <canvas id="chart" aria-label="Bar chart showing VO2 Max ranges by fitness level" role="img"></canvas>
+  </div>
+</div>
+
+<script>
+const classifications = [
+  { name: 'Poor',      color: '#ef4444', m2029: [0,33],    m3039: [0,31],    f2029: [0,28],    f3039: [0,26],
+    tips: ['Start with low-impact cardio: 20 min walks 3×/week','Add swimming or cycling to build base','Consult a physician before intense exercise'] },
+  { name: 'Fair',      color: '#f97316', m2029: [33,42],   m3039: [31,39],   f2029: [28,36],   f3039: [26,34],
+    tips: ['Increase cardio to 30 min, 4×/week','Add interval training once weekly','Monitor resting HR — aim below 65 bpm'] },
+  { name: 'Good',      color: '#eab308', m2029: [42,50],   m3039: [39,47],   f2029: [36,42],   f3039: [34,40],
+    tips: ['Add tempo runs 1–2×/week','Include strength training to support aerobic performance','Aim for 150+ min moderate activity weekly'] },
+  { name: 'Excellent', color: '#22c55e', m2029: [50,58],   m3039: [47,55],   f2029: [42,49],   f3039: [40,47],
+    tips: ['Maintain with consistent training variety','Add long-slow-distance runs monthly','Track HRV to optimize recovery'] },
+  { name: 'Superior',  color: '#3b82f6', m2029: [58,999],  m3039: [55,999],  f2029: [49,999],  f3039: [47,999],
+    tips: ['Compete in local running events to stay motivated','Incorporate periodization cycles','Prioritize sleep and nutrition for peak performance'] },
+];
+
+const tableColors = { 'Poor':'bg-red-50 text-red-700','Fair':'bg-orange-50 text-orange-700','Good':'bg-yellow-50 text-yellow-700','Excellent':'bg-green-50 text-green-700','Superior':'bg-blue-50 text-blue-700' };
+const cardColors = { 'Poor':'bg-red-500','Fair':'bg-orange-500','Good':'bg-yellow-500','Excellent':'bg-green-500','Superior':'bg-blue-500' };
+
+function buildTable() {
+  const tbody = document.getElementById('class-table-body');
+  classifications.forEach(c => {
+    const cls = tableColors[c.name];
+    tbody.innerHTML += `<tr class="${cls}">
+      <td class="px-3 py-2 font-semibold">${c.name}</td>
+      <td class="text-center px-3 py-2">${c.m2029[1]===999? c.m2029[0]+'+' : c.m2029[0]+'–'+c.m2029[1]}</td>
+      <td class="text-center px-3 py-2">${c.m3039[1]===999? c.m3039[0]+'+' : c.m3039[0]+'–'+c.m3039[1]}</td>
+      <td class="text-center px-3 py-2">${c.f2029[1]===999? c.f2029[0]+'+' : c.f2029[0]+'–'+c.f2029[1]}</td>
+      <td class="text-center px-3 py-2">${c.f3039[1]===999? c.f3039[0]+'+' : c.f3039[0]+'–'+c.f3039[1]}</td>
+    </tr>`;
+  });
+}
+
+function buildChart() {
+  const ctx = document.getElementById('chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: classifications.map(c => c.name),
+      datasets: [{
+        label: 'VO2 Max midpoint (Male 20–29)',
+        data: [29, 37, 46, 54, 62],
+        backgroundColor: classifications.map(c => c.color),
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ~${ctx.raw} mL/kg/min` } } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'mL/kg/min' } } }
+    }
+  });
+}
+
+function classify(vo2, age, gender) {
+  let key;
+  if (gender === 'M') key = age < 30 ? 'm2029' : 'm3039';
+  else key = age < 30 ? 'f2029' : 'f3039';
+  return classifications.find(c => vo2 >= c[key][0] && vo2 < c[key][1]) || classifications[classifications.length-1];
+}
+
+function showResult(vo2, age, gender) {
+  const cl = classify(vo2, age, gender);
+  const card = document.getElementById('result-card');
+  card.className = `rounded-2xl shadow p-6 mb-6 ${cardColors[cl.name]}`;
+  card.classList.remove('hidden');
+  document.getElementById('vo2-value').textContent = vo2.toFixed(1);
+  document.getElementById('classification-badge').textContent = cl.name;
+  const ul = document.getElementById('tips-list');
+  ul.innerHTML = cl.tips.map(t => `<li>• ${t}</li>`).join('');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function calculateHR() {
+  const age = parseInt(document.getElementById('age').value);
+  const resthr = parseInt(document.getElementById('resthr').value);
+  let maxhr = parseInt(document.getElementById('maxhr').value);
+  const gender = document.querySelector('input[name="gender"]:checked').value;
+  if (!age || !resthr || age < 10 || resthr < 30) { alert('Please enter valid age and resting heart rate.'); return; }
+  if (!maxhr || isNaN(maxhr)) maxhr = 220 - age;
+  const vo2 = 15 * (maxhr / resthr);
+  showResult(vo2, age, gender);
+}
+
+function calculateCooper() {
+  const age = parseInt(document.getElementById('c-age').value);
+  const distance = parseFloat(document.getElementById('distance').value);
+  const gender = document.querySelector('input[name="c-gender"]:checked').value;
+  if (!age || !distance || distance < 200) { alert('Please enter valid age and distance.'); return; }
+  const vo2 = (distance - 504.9) / 44.73;
+  showResult(vo2, age, gender);
+}
+
+function switchTab(tab) {
+  const isHR = tab === 'hr';
+  document.getElementById('form-hr').classList.toggle('hidden', !isHR);
+  document.getElementById('form-cooper').classList.toggle('hidden', isHR);
+  document.getElementById('tab-hr').className = `flex-1 py-3 text-sm font-medium transition-colors ${isHR ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`;
+  document.getElementById('tab-cooper').className = `flex-1 py-3 text-sm font-medium transition-colors ${!isHR ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`;
+  document.getElementById('tab-hr').setAttribute('aria-pressed', isHR);
+  document.getElementById('tab-cooper').setAttribute('aria-pressed', !isHR);
+}
+
+buildTable();
+buildChart();
+</script>
+</body>
+</html>
